@@ -131,40 +131,66 @@
     reveals.forEach((el) => el.classList.add('in'));
   }
 
-  // lightbox dos quadros
+  // lightbox: cada projeto abre a sua própria galeria
   const lb = document.getElementById('lightbox');
   const lbImg = lb.querySelector('img');
+  const lbVideo = lb.querySelector('video');
   const lbCap = lb.querySelector('figcaption');
-  const frames = [...document.querySelectorAll('[data-full]')];
-  let current = 0;
+  const tiles = [...document.querySelectorAll('.proj[data-dir]')];
+  let items = [], title = '', current = 0;
 
   const show = (i) => {
-    current = (i + frames.length) % frames.length;
-    const f = frames[current];
-    lbImg.src = f.dataset.full;
-    lbImg.alt = f.querySelector('img').alt;
-    lbCap.textContent = f.querySelector('figcaption').textContent;
+    current = (i + items.length) % items.length;
+    const src = items[current];
+    const isVideo = src.endsWith('.mp4');
+    lbVideo.pause();
+    lbImg.hidden = isVideo;
+    lbVideo.hidden = !isVideo;
+    if (isVideo) {
+      if (lbVideo.getAttribute('src') !== src) lbVideo.src = src;
+    } else {
+      lbImg.src = src;
+      lbImg.alt = `${title}, foto ${current + 1} de ${items.length}`;
+      const next = items[(current + 1) % items.length];
+      if (!next.endsWith('.mp4')) new Image().src = next;
+    }
+    lbCap.textContent = `${title} · ${current + 1} / ${items.length}`;
   };
-  frames.forEach((f, i) => {
+  tiles.forEach((f) => {
+    const cap = f.querySelector('figcaption');
+    const sub = cap.querySelector('small');
+    const name = sub ? `${cap.firstChild.textContent} ${sub.textContent}` : cap.textContent;
     f.tabIndex = 0;
     f.setAttribute('role', 'button');
-    f.setAttribute('aria-label', `Ampliar foto: ${f.querySelector('img').alt}`);
-    const open = (e) => {
-      if (e.target.closest('a')) return;
-      show(i);
+    f.setAttribute('aria-label', `Ver fotos do projeto ${name}`);
+    const open = () => {
+      const base = `assets/img/portfolio/${f.dataset.dir}/`;
+      items = Array.from({ length: Number(f.dataset.count) }, (_, n) => `${base}${String(n + 1).padStart(2, '0')}.webp`);
+      if (f.dataset.video) items.push(`${base}video.mp4`);
+      title = name;
+      show(0);
       lb.showModal();
     };
     f.addEventListener('click', open);
     f.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
     });
   });
   lb.querySelector('.lb-close').addEventListener('click', () => lb.close());
   lb.querySelector('.lb-prev').addEventListener('click', () => show(current - 1));
   lb.querySelector('.lb-next').addEventListener('click', () => show(current + 1));
   lb.addEventListener('click', (e) => { if (e.target === lb) lb.close(); });
+  lb.addEventListener('close', () => lbVideo.pause());
   lb.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') show(current - 1);
     if (e.key === 'ArrowRight') show(current + 1);
+  });
+  let touchX = null;
+  lb.addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+  lb.addEventListener('touchend', (e) => {
+    if (touchX === null || e.target === lbVideo) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    touchX = null;
+    if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));
   });
 })();
